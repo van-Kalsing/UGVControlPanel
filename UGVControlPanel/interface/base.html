@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+        * {
+            user-select:none;
+            -webkit-user-select:none;
+        }
+        body {
+            padding: 20px;
+            position: absolute;
+            left: 0; right: 0;
+            top: 0; bottom: 0;
+        }
+        header {
+            position: absolute;
+            top: 0; height: 32px;
+            left: 0; right: 0;
+        }
+        header a {
+            font-size: 18px;
+            line-height: 32px;
+            margin: 0 20px;
+        }
+        .panel {
+            position: absolute;
+            top: 32px;
+            bottom: 0;
+        }
+        .side_left {
+            left: 0;
+            width: 25%;
+        }
+        .on_center {
+            left: 25%;
+            width: 50%;
+        }
+        .side_right {
+            right: 0;
+            width: 25%;
+        }
+        .console {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            overflow-y: auto;
+        }
+        .cameras {
+            width: 100%;
+            height: 50%;
+            position: absolute;
+            bottom: 50%;
+        }
+            .camera {
+                color: white;
+                font-size: 7.5vh;
+                line-height: 200%;
+                width: 19%;
+                height: 49%;
+                margin: 0 1% 1% 0;
+                background: grey;
+                display: inline-block;
+                text-align: center;
+                vertical-align: middle;
+            }
+            .camera.enable {
+                background: green;
+            }
+
+        .buttons {
+            width: 100%;
+            height: 50%;
+            position: absolute;
+            bottom: 0;
+        }
+            .button {
+                width: 33.3%;
+                height: 33.3%;
+                position: absolute;
+                background: grey;
+            }
+            .button.up {
+                top: 0;
+                left: 33.3%;
+            }
+            .button.left {
+                top: 33.3%;
+                left: 0;
+            }
+            .button.right {
+                top: 33.3%;
+                right: 0;
+            }
+            .button.down {
+                bottom: 0;
+                left: 33.3%;
+            }
+            .button.is_down {
+                background: green;
+            }
+    </style>
+    <script src="jquery-1.11.2.min.js"></script>
+</head>
+<body>
+    <header><a href="">Main</a></header>
+    <div class="panel side_left">
+        <!--
+        <div>
+            <p class="alpha"></p>
+            <p class="beta"></p>
+            <p class="gamma"></p>
+        </div>
+        -->
+        <div class="buttons">
+            <span class="button up" data-keycode="87"></span><span class="button left" data-keycode="65"></span>
+            <span class="button right" data-keycode="68"></span><span class="button down" data-keycode="83"></span>
+        </div>
+    </div>
+    <div class="panel on_center"><div class="console"></div></div>
+    <div class="panel side_right">
+        <div class="cameras"></div>
+        <div class="buttons">
+            <span class="button up" data-keycode="38"></span><span class="button left" data-keycode="37"></span>
+            <span class="button right" data-keycode="39"></span><span class="button down" data-keycode="40"></span>
+        </div>
+    </div>
+</body>
+<script type="text/javascript">
+    var KEYS = [87, 65, 68, 83, 38, 37, 39, 40];
+    var states = {};
+    function setState(keycode, state){
+        var el = $('[data-keycode="' + keycode + '"]'); 
+        if (el) {
+            state ? el.addClass('is_down') : el.removeClass('is_down');
+        }
+        states[keycode] = state;
+        var params = {};
+        params[state ? 'key_down' : 'key_up'] = keycode;
+        $.post('/', params);
+        //console.log(keycode);
+    }
+    $(document).ready(function(){
+        $('body').bind('keydown', function(e){
+            var keycode = e.which;
+            if ($.inArray(keycode, KEYS) != -1 && !states[keycode]) {
+                setState(keycode, true);
+            }
+        });
+        $('body').bind('keyup', function(e){
+            var keycode = e.which;
+            if ($.inArray(keycode, KEYS) != -1 && states[keycode]) {
+                setState(keycode, false);
+            }
+        });
+        $('.button').bind('mousedown touchstart', function(e){
+            var keycode = $(this).data('keycode');
+            if (!states[keycode]) {
+                setState(keycode, true);
+            }
+        });
+        $('.button').bind('mouseup touchend', function(e){
+            var keycode = $(this).data('keycode');
+            if (states[keycode]) {
+                setState(keycode, false);
+            }
+        });
+        $('.cameras').on('click', '.camera', function(e){
+            $('.camera').removeClass('enable');
+            var el = $(this);
+            $.post('/', {
+                'init_camera': $(this).data('number')
+            }, function(){
+                el.addClass('enable');
+            });
+        });
+        /*
+        var alpha = 0, beta = 0, gamma = 0, d = 1;
+        window.addEventListener('deviceorientation', function(e){
+            if (Math.abs(alpha - e.alpha) > d) {
+                alpha = e.alpha;
+                $('.alpha').text(alpha);
+            }
+            if (Math.abs(beta - e.beta) > d) {
+                beta = e.beta;
+                $('.beta').text(e.beta);
+            }
+            if (Math.abs(gamma - e.gamma) > d) {
+                gamma = e.gamma;
+                $('.gamma').text(e.gamma);
+            }
+
+        });
+        */
+        $.getJSON('/camera/', function(data){
+            for (var i = 1; i <= data.count_camera; i++) {
+                $('.cameras').append('<span class="camera" data-number="' + i + '">' + i + '</span>');
+            };
+            $('.camera').removeClass('enable');
+            $('.camera[data-number="' + data.init_camera + '"]').addClass('enable');
+        });
+        setInterval(function() {
+            $.post('/', {'ping': 1}, function(data) {
+                $('.console').append('<pre>' + data + '</pre>');
+                $('.console').scrollTop($('.console')[0].scrollHeight);
+            });
+        }, 1000);
+    });
+</script>
+</html>

@@ -51,9 +51,11 @@ class Interface():
 		self._interface_lock = threading.RLock()
 		
 		self.__server                  = None
-		self.__last_ping_time          = None
+		# self.__last_ping_time          = None
 		self.__keys_states             = dict()
 		self.__keys_states_times_marks = dict()
+		self.__key_down_handlers       = dict()
+		self.__key_up_handlers         = dict()
 		self.__messages                = list()
 		
 		
@@ -62,6 +64,8 @@ class Interface():
 		for key in Interface.__position_keys:
 			self.__keys_states[key]             = False
 			self.__keys_states_times_marks[key] = current_time
+			self.__key_down_handlers[key]       = list()
+			self.__key_up_handlers[key]         = list()
 			
 			
 			
@@ -143,6 +147,29 @@ class Interface():
 		
 		
 		
+	@_lock_interface
+	def add_key_down_handler(self, key, handler):
+		if key not in self.__key_down_handlers:
+			# Состояние переданной клавиши не отслеживается
+			raise Exception() #!!!!! Создавать хорошие исключения
+			
+		self.__key_down_handlers[key].append(handler)
+		
+		
+		
+	@_lock_interface
+	def add_key_up_handler(self, key, handler):
+		if key not in self.__key_up_handlers:
+			# Состояние переданной клавиши не отслеживается
+			raise Exception() #!!!!! Создавать хорошие исключения
+			
+		self.__key_up_handlers[key].append(handler)
+		
+		
+		
+		
+		
+	@_lock_interface
 	def get_server(self, host, port_number):
 		"""
 		Метод, возвращающий сервер, посредством которого осуществляется связь
@@ -215,6 +242,10 @@ class Interface():
 			
 	@_lock_interface
 	def __handle_post_request(self, handler):
+		keys_event_handlers           = list()
+		keys_event_handlers_parameter = list()
+		
+		
 		data = urllib.parse.parse_qs(
 			handler.rfile.read(
 				int(handler.headers.get("content-length"))
@@ -244,6 +275,14 @@ class Interface():
 						self.__keys_states[key]             = not key_state
 						self.__keys_states_times_marks[key] = current_time
 						
+						
+					if command == "key_down":
+						keys_event_handlers = self.__key_down_handlers[key]
+					else:
+						keys_event_handlers = self.__key_up_handlers[key]
+						
+					keys_event_handlers_parameter.append(key)
+					
 				handler.wfile.write(b"ok")
 				
 			elif command == "ping":
@@ -257,4 +296,8 @@ class Interface():
 				handler.wfile.write(b"ok")
 		else:
 			handler.wfile.write(b"ok")
+			
+			
+		for handler in keys_event_handlers:
+			handler(*keys_event_handlers_parameter)
 			
